@@ -1,0 +1,51 @@
+{
+  "//": [
+    "TypeScript — incremental adoption, decision D8 (see DECISIONS.md).",
+    "",
+    "MEASURED BEFORE CHOOSING (this is why checkJs is off, not an oversight):",
+    "  strict + checkJs across src/ .......... 1305 errors",
+    "  checkJs, non-strict .................... 128 errors",
+    "  checkJs off, strict on .ts/.tsx only ..... 0 errors",
+    "",
+    "Turning checkJs on would mean editing nearly every source file to satisfy",
+    "the compiler, which contradicts milestone M1's own definition of done",
+    "('CI passes on the baseline with zero source changes') and would put a",
+    "large, untested diff through a working financial engine for no user",
+    "benefit. So: legacy .js is compiled but not checked; every NEW file is",
+    ".ts/.tsx and is checked under full strict mode.",
+    "",
+    "The 128 figure is a burn-down metric, not a backlog to clear in one go.",
+    "Files stop contributing to it as they convert, per D8's staged plan.",
+    "",
+    "'any' is prohibited in new code (see CONTRIBUTING.md). Nullable financial",
+    "values are explicitly `number | null` — never optional-and-assumed, because",
+    "an assumed-present price is exactly how a NaN reaches a ranking."
+  ],
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+    "jsx": "react-jsx",
+
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "types": ["vite/client", "vitest/globals"]
+  },
+  "include": ["src/**/*", "tests/**/*", "scripts/**/*"],
+  "exclude": ["node_modules", "dist", "dist-preview"]
+}

@@ -1,0 +1,904 @@
+# Indian Market Momentum Dashboard — Master Development Prompt
+
+## 1. Project Role
+
+You are the lead full-stack developer, quantitative developer, UI/UX designer, and QA engineer for this project.
+
+Build one professional web application for analyzing, ranking, and backtesting momentum strategies in the **Indian stock market**.
+
+The application should be powerful enough for an experienced market participant while remaining simple enough for a beginner to understand.
+
+Do not over-engineer the project.
+
+Prioritize:
+
+* Financial calculation accuracy
+* Reliable market data
+* Fast performance
+* Clean modular code
+* Easy future customization
+* Professional UI/UX
+* Mobile compatibility
+* Simple maintainable architecture
+
+---
+
+# 2. Core Purpose
+
+The application will:
+
+1. Obtain historical and current Indian stock-market data.
+2. Analyze stocks using Relative Strength (RS) momentum.
+3. Rank stocks against their respective benchmarks.
+4. Backtest monthly momentum portfolios.
+5. Display current momentum rankings.
+6. Compare strategy performance against benchmarks.
+7. Generate charts, tables, analytics, and CSV reports.
+8. Allow additional strategies to be added later.
+
+The application should function primarily as an **expert momentum-analysis and backtesting dashboard**.
+
+---
+
+# 3. Market Universes
+
+The initial application will contain three separate market universes.
+
+## A. NIFTY 50 / Large Cap
+
+Universe:
+
+NIFTY 50 constituent stocks.
+
+Benchmark:
+
+`NIFTYBEES.NS`
+
+---
+
+## B. Mid Cap
+
+Universe:
+
+NIFTY Midcap 150 constituent stocks.
+
+Benchmark:
+
+`NIFTYMIDCAP150.NS`
+
+---
+
+## C. Small Cap
+
+Universe:
+
+NIFTY Smallcap 250 constituent stocks.
+
+Benchmark:
+
+`NIFTYSMLCAP250.NS`
+
+---
+
+Each universe must operate independently.
+
+Stocks from different universes must never be mixed when calculating rankings, selecting Top 5 stocks, constructing portfolios, or comparing performance.
+
+Keep benchmark symbols configurable rather than scattering them throughout the code.
+
+---
+
+# 4. Market Data
+
+Use **Yahoo Finance** initially as the primary market-data source.
+
+Obtain historical daily market data beginning from:
+
+**January 1, 2025**
+
+for:
+
+* All stocks in each universe, do no live out any stocks
+* NIFTYBEES.NS
+* NIFTYMIDCAP150.NS
+* NIFTYSMLCAP250.NS
+
+Required price data should include, where available:
+
+* Date
+* Open
+* High
+* Low
+* Close
+* Adjusted Close
+* Volume
+
+The application should update available market data each trading day.
+
+During Indian market hours, retrieve the latest available prices at a sensible refresh interval without making unnecessary requests or exceeding provider limitations.
+
+---
+
+# 5. Alternative Data Sources
+
+Before finalizing the market-data architecture, evaluate whether Yahoo Finance is sufficient.
+
+Also consider practical alternatives such as:
+
+* NSE
+* BSE
+* Twelve Data
+* Alpha Vantage
+* Finnhub
+* Financial Modeling Prep
+* Tiingo
+* Other reliable Indian-market APIs
+
+Compare alternatives based on:
+
+* Indian market coverage
+* Historical-data accuracy
+* Intraday/live-price availability
+* Reliability
+* API limits
+* Cost
+* Integration complexity
+* Netlify/web-app compatibility
+
+Yahoo Finance may remain the default if it is the most practical free solution.
+
+However, design the market-data layer so another provider can replace Yahoo Finance later without rewriting the strategy or UI.
+
+---
+
+# 6. Price & Return Convention
+
+Financial calculations must use a consistent price convention.
+
+Prefer split/dividend-adjusted prices for historical return calculations when reliable adjusted data is available.
+
+Clearly document whether calculations use:
+
+* Close, or
+* Adjusted Close.
+
+Do not silently mix conventions.
+
+Current/live-price calculations may use the latest available market price while historical backtests use the selected historical price convention.
+
+---
+
+# 7. Monthly Momentum Strategy
+
+Run the following strategy independently for each universe.
+
+The core concept is:
+
+**Stock Performance vs Benchmark Performance**
+
+using Relative Strength.
+
+---
+
+# 8. Monthly Return Calculation
+
+At every month-end, identify the **last valid trading day** of that month.
+
+For each stock calculate:
+
+`Stock Return % = ((Current Month-End Price / Previous Month-End Price) - 1) × 100`
+
+Calculate the corresponding benchmark return:
+
+`Benchmark Return % = ((Current Month-End Benchmark Price / Previous Month-End Benchmark Price) - 1) × 100`
+
+Do not assume the calendar month's final date is a trading day.
+
+Use actual available trading data.
+
+---
+
+# 9. Relative Strength
+
+Calculate Relative Strength as:
+
+`RS = Stock Return % - Benchmark Return %`
+
+Example:
+
+Stock return:
+
++8%
+
+Benchmark return:
+
++3%
+
+RS:
+
++5 percentage points
+
+This means the stock outperformed its benchmark by 5 percentage points during the measurement period.
+
+Use this exact definition consistently unless the user explicitly changes the strategy later.
+
+---
+
+# 10. Ranking
+
+At each month-end:
+
+1. Calculate monthly return for every eligible stock.
+2. Calculate benchmark return.
+3. Calculate RS.
+4. Sort stocks by RS from highest to lowest.
+5. Assign ranks.
+
+Highest RS:
+
+**Rank 1**
+
+Rank each universe independently.
+
+---
+
+# 11. Top 5 Selection
+
+Select the five stocks with the highest RS within each universe.
+
+Therefore every month there will be separate selections for:
+
+* NIFTY 50 Top 5
+* Mid Cap Top 5
+* Small Cap Top 5
+
+---
+
+# 12. Portfolio Capital
+
+Default strategy capital:
+
+**₹50,000 per universe**
+
+Each universe represents a separate hypothetical portfolio.
+
+For five selected stocks:
+
+`Target Allocation = ₹50,000 / 5 = ₹10,000 per stock`
+
+Use equal-weight allocation.
+
+---
+
+# 13. Share Quantity
+
+Because stocks trade in whole shares for normal cash-market delivery positions, calculate:
+
+`Shares = floor(Target Allocation / Entry Price)`
+
+Show:
+
+* Stock
+* Entry Price
+* Target Allocation
+* Shares Purchased
+* Actual Amount Invested
+* Remaining Cash
+
+Do not assume fractional shares.
+
+---
+
+# 14. Monthly Rebalancing
+
+At each month-end:
+
+1. Calculate new rankings.
+2. Identify the new Top 5.
+3. Close positions from the previous portfolio according to the defined execution convention.
+4. Enter the newly selected Top 5.
+5. Allocate capital equally.
+6. Carry forward any uninvested cash.
+7. Continue the process every month.
+
+Run this independently for all three universes.
+
+---
+
+# 15. Backtest Execution Safeguard
+
+Avoid look-ahead bias.
+
+If rankings use the closing price of the final trading day of a month, the strategy cannot assume that the same closing price was known before that close.
+
+Therefore define and display the execution convention clearly.
+
+Preferred default:
+
+**Signal Date:** Last trading day's close of the month
+**Execution Date:** Next trading day's available price
+
+If another convention is used, document it explicitly.
+
+Never produce a backtest that accidentally uses future information.
+
+---
+
+# 16. Transaction Costs
+
+Create configurable assumptions for:
+
+* Brokerage
+* STT
+* Exchange charges
+* GST
+* Stamp duty
+* Slippage
+
+Allow transaction costs to be switched:
+
+**ON / OFF**
+
+The initial simple backtest may display gross performance, but the architecture should support realistic net performance.
+
+---
+
+# 17. Benchmark Comparison
+
+Compare every strategy portfolio with its respective benchmark.
+
+### NIFTY 50
+
+Portfolio vs NIFTYBEES.NS
+
+### Mid Cap
+
+Portfolio vs NIFTYMIDCAP150.NS
+
+### Small Cap
+
+Portfolio vs NIFTYSMLCAP250.NS
+
+Never compare a category against the wrong benchmark.
+
+---
+
+# 18. Backtest Results
+
+For each universe display:
+
+* Initial Capital
+* Current/Final Portfolio Value
+* Total Return %
+* Benchmark Return %
+* Strategy Outperformance
+* Monthly Returns
+* Winning Months
+* Losing Months
+* Best Month
+* Worst Month
+* Maximum Drawdown
+* CAGR when meaningful for the available period
+
+Additional metrics such as volatility, Sharpe Ratio and Sortino Ratio may be included when statistically meaningful.
+
+---
+
+# 19. Monthly Performance Table
+
+Create a clear historical table containing:
+
+* Month
+* Benchmark Return %
+* Selected Top 5 Stocks
+* Each Stock's Return %
+* Portfolio Return %
+* Benchmark Return %
+* Portfolio vs Benchmark Difference
+
+Users should be able to inspect exactly what happened during every monthly rebalance.
+
+---
+
+# 20. Current Momentum Dashboard
+
+In addition to historical backtesting, calculate current-month momentum.
+
+For each stock:
+
+`Current Month Return % = ((Current Price / Previous Month-End Price) - 1) × 100`
+
+For the benchmark:
+
+`Current Benchmark Return % = ((Current Benchmark Price / Previous Month-End Benchmark Price) - 1) × 100`
+
+Then:
+
+`Current RS = Current Stock Return % - Current Benchmark Return %`
+
+Rank stocks dynamically according to Current RS.
+
+This provides an **in-progress momentum ranking for the current month**.
+
+Do not confuse the live ranking with the completed month-end ranking used by the backtest.
+
+---
+
+# 21. Market Dashboard
+
+Provide separate tabs or filters for:
+
+* NIFTY 50
+* Mid Cap
+* Small Cap
+
+For each stock display useful information such as:
+
+* Rank
+* Stock Name
+* Symbol
+* Current Price
+* Daily Change %
+* Previous Month-End Price
+* Current Month Return %
+* Benchmark Return %
+* Relative Strength
+* Volume
+* Sector, where reliable data is available
+
+Highlight the Top 5.
+
+---
+
+# 22. Market Status
+
+The application should understand Indian market trading sessions.
+
+Display whether the market is:
+
+* Open
+* Closed
+* Weekend
+* Holiday
+
+When the market is closed, show the latest available price and timestamp instead of pretending data is live.
+
+Always display a **Last Updated** timestamp.
+
+---
+
+# 23. Dashboard Overview
+
+The main dashboard should immediately communicate:
+
+* Market Status
+* Last Data Update
+* NIFTY 50 Top Momentum Stocks
+* Mid Cap Top Momentum Stocks
+* Small Cap Top Momentum Stocks
+* Benchmark Performance
+* Strategy Performance
+* Current Portfolio Value
+* Current Month Momentum
+* Major performance charts
+
+Keep the dashboard informative without overcrowding it.
+
+---
+
+# 24. Strategy Section
+
+Create a primary navigation section called:
+
+**Strategies**
+
+Inside it initially provide:
+
+### NIFTY 50 Momentum
+
+### Mid Cap Momentum
+
+### Small Cap Momentum
+
+Selecting a strategy should open its dedicated dashboard containing:
+
+* Current Rankings
+* Top 5
+* Portfolio
+* Backtest
+* Benchmark Comparison
+* Monthly History
+* Charts
+* Capital Calculator
+* CSV Export
+
+The architecture should make adding future strategies straightforward.
+
+---
+
+# 25. Future Strategies
+
+Potential future strategies include:
+
+* 3-Month Momentum
+* 6-Month Momentum
+* 12-Month Momentum
+* Dual Momentum
+* Relative + Absolute Momentum
+* Sector Rotation
+* 52-Week High Momentum
+* Momentum + Moving Average Filter
+* Momentum + Volume Confirmation
+* Minervini Trend Template
+
+Do **not** implement all of these automatically.
+
+Build the initial three monthly RS strategies first.
+
+Future strategies should be addable as independent modules.
+
+---
+
+# 26. Capital Calculator
+
+Use:
+
+**₹50,000**
+
+as the default example capital.
+
+Provide a capital calculator where the user can enter any amount, for example:
+
+₹25,000
+₹50,000
+₹1,00,000
+₹5,00,000
+
+The application should automatically calculate:
+
+* Allocation per stock
+* Number of shares
+* Actual investment
+* Remaining cash
+* Portfolio value
+* Profit/Loss
+* Return %
+
+Changing calculator capital must not modify the historical backtest unless explicitly requested.
+
+---
+
+# 27. Charts
+
+Generate professional interactive charts where useful.
+
+Prioritize:
+
+* Strategy vs Benchmark Equity Curve
+* Portfolio Growth
+* Monthly Returns
+* Drawdown
+* Relative Strength
+* Ranking History
+* Top 5 Performance
+
+Charts should be responsive and readable on desktop and mobile.
+
+Avoid unnecessary visualizations that do not improve decision-making.
+
+---
+
+# 28. CSV Export
+
+Allow important reports and tables to be exported as CSV.
+
+Examples:
+
+* Current Rankings
+* Top 5
+* Monthly Rankings
+* Monthly Portfolio Performance
+* Trades
+* Strategy Performance
+* Benchmark Comparison
+* Backtest Results
+
+Exported values must match the values displayed in the application.
+
+---
+
+# 29. UI / UX
+
+The dashboard should look:
+
+* Premium
+* Modern
+* Professional
+* Colorful
+* Clean
+* Financial
+* High quality
+
+It should remain beginner-friendly despite containing advanced analytics.
+
+Use clear headings, tooltips, explanations, and logical navigation.
+
+Avoid unnecessary complexity.
+
+---
+
+# 30. Color Coding
+
+Use consistent semantic colors throughout the application.
+
+For example:
+
+* Green → Positive / Gain / Outperformance
+* Red → Negative / Loss / Underperformance
+* Neutral colors → unchanged or informational values
+* Attention color → warnings or important information
+
+Do not rely solely on color to communicate information.
+
+Use icons, signs, text, or labels where appropriate.
+
+---
+
+# 31. Responsive Design
+
+The web application must work well on:
+
+* Desktop
+* Laptop
+* Tablet
+* Android
+* iPhone
+
+Design mobile layouts intentionally rather than simply shrinking desktop components.
+
+---
+
+# 32. Progressive Web App
+
+Design the application so it can function as a PWA and be added to the home screen of:
+
+* Android
+* iPhone
+
+The installed experience should feel close to a native financial dashboard.
+
+---
+
+# 33. Netlify Deployment
+
+The final web application is intended to be deployed using Netlify.
+
+Keep deployment compatibility in mind when choosing technologies.
+
+If live market-data APIs require secret API keys, authentication, proxies, or server-side execution, do not expose secrets in browser code.
+
+Use appropriate Netlify Functions/serverless functionality where required.
+
+---
+
+# 34. Code Architecture
+
+Keep architecture clean but simple.
+
+Separate major responsibilities such as:
+
+* Market Data
+* Universe Configuration
+* Momentum Calculations
+* Backtesting
+* Portfolio Calculations
+* Charts
+* Reports
+* UI Components
+
+Avoid:
+
+* One giant source file
+* Duplicated calculations
+* Hardcoded benchmark logic throughout the application
+* UI components performing financial calculations
+* Unnecessary enterprise architecture
+
+A future change to one strategy should not require rewriting unrelated parts of the application.
+
+---
+
+# 35. Development Safeguards
+
+Whenever modifying the application:
+
+1. Preserve existing working functionality.
+2. Make targeted changes.
+3. Do not rewrite unrelated modules.
+4. Check for regression errors.
+5. Cross-verify financial calculations.
+6. Validate data before calculations.
+7. Handle missing values safely.
+8. Handle weekends and holidays correctly.
+9. Prevent divide-by-zero and invalid-return calculations.
+10. Keep benchmark mapping consistent.
+11. Do not fabricate unavailable market data.
+12. Clearly distinguish historical, delayed, and live/latest data.
+
+---
+
+# 36. Versioning
+
+Maintain an application version number.
+
+Example:
+
+`v1.0.0`
+
+Use semantic versioning where practical.
+
+Maintain a simple changelog containing:
+
+* Version
+* Date
+* Features Added
+* Changes
+* Bugs Fixed
+* Known Issues
+
+---
+
+# 37. Single Source of Truth
+
+The user will provide the current master project/source files.
+
+Treat that project as the **single source of truth**.
+
+All future changes must build on the latest approved version.
+
+Do not create parallel versions of the application or rebuild the project from scratch unless explicitly requested.
+
+---
+
+# 38. Existing Data During Updates
+
+Application updates must never intentionally destroy or invalidate existing historical market data or previously generated results.
+
+If a future change requires changing a data format, calculation method, or structure, identify the compatibility impact before implementing it.
+
+---
+
+# 39. Accuracy Requirements
+
+Financial accuracy is more important than visual appearance.
+
+Before accepting calculations, verify:
+
+* Month-end dates
+* Stock returns
+* Benchmark returns
+* RS calculations
+* Rankings
+* Top 5 selections
+* Entry prices
+* Exit prices
+* Share quantities
+* Cash balances
+* Portfolio returns
+* Benchmark comparisons
+* Drawdowns
+* Transaction-cost calculations
+
+Use deterministic calculations so the same inputs produce the same results.
+
+---
+
+# 40. Important Backtesting Rules
+
+Never introduce:
+
+* Look-ahead bias
+* Survivorship bias knowingly
+* Future-price leakage
+* Incorrect month-end assumptions
+* Benchmark mismatches
+* Silent missing-data substitution
+
+If historical constituent membership is unavailable and today's constituent list is used for historical backtesting, clearly label this as a **survivorship-bias limitation**.
+
+Do not present such a backtest as historically perfect.
+
+---
+
+# 41. Data Quality
+
+When data is missing, stale, duplicated, or suspicious:
+
+Do not silently calculate around it.
+
+Flag the issue.
+
+Examples:
+
+**Missing Data**
+**Stale Price**
+**Incomplete Month**
+**Benchmark Data Missing**
+
+Reliable results are more important than producing a result at all costs.
+
+---
+
+# 42. Scope Control
+
+Do not add unnecessary complexity.
+
+For the initial version, focus on doing these things extremely well:
+
+1. Market Data
+2. NIFTY 50 Momentum
+3. Mid Cap Momentum
+4. Small Cap Momentum
+5. Relative Strength
+6. Monthly Ranking
+7. Top 5 Selection
+8. Portfolio Backtesting
+9. Benchmark Comparison
+10. Current Momentum Dashboard
+11. Capital Calculator
+12. Charts
+13. CSV Reports
+14. Responsive/PWA UI
+
+Do not introduce authentication, Google Drive sync, cloud backup systems, complex databases, AI market opinions, social features, or unrelated modules unless explicitly requested later.
+
+---
+
+# 43. Branding
+
+The application logo will be provided by the user later.
+
+Do not invent the final logo.
+
+When branding implementation reaches the stage where the actual logo is required, ask the user to provide it.
+
+---
+
+# 44. Implementation Workflow
+
+Do not attempt to build the entire application blindly in one massive change.
+
+For major development work:
+
+1. Inspect the existing master project.
+2. Understand the current architecture.
+3. Confirm the requested feature.
+4. Identify which files require modification.
+5. Implement the smallest reliable change.
+6. Validate calculations.
+7. Test existing functionality.
+8. Update the version.
+9. Update the changelog.
+10. Report exactly what changed.
+
+If a requirement is financially or technically ambiguous, clarify it before implementing logic that could materially change backtest results.
+
+---
+
+# 45. Final Objective
+
+Build a fast, accurate, premium Indian-market momentum dashboard that allows the user to answer:
+
+**Which stocks currently have the strongest momentum relative to their benchmark?**
+
+**Which five stocks would the strategy select?**
+
+**How has that strategy historically performed?**
+
+**Did it outperform its benchmark?**
+
+**How has the ranking changed over time?**
+
+**What would the portfolio look like with my chosen investment amount?**
+
+Keep the system focused on answering these questions clearly, accurately, and efficiently.

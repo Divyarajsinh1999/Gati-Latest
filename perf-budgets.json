@@ -1,0 +1,46 @@
+{
+  "//": [
+    "Performance budgets from the approved architecture, expressed as data so",
+    "the gates are declarative and a budget change is a reviewable one-line diff.",
+    "",
+    "These are PASS/FAIL, not aspirations. A milestone that breaches one is not",
+    "done. Enforced from M1 onward so a regression is caught by the commit that",
+    "causes it, rather than by an audit at the end when the cause is buried.",
+    "",
+    "computeMs: the heavy derived pipeline (backtest + current momentum) for a",
+    "universe of that size. 250 is the Smallcap 250 case and the binding one.",
+    "If it is breached, the escalation is the Web Worker implementation behind",
+    "the compute scheduler \u2014 a configuration change, not a refactor.",
+    "",
+    "bundleKb: gzipped, per chunk. The charts chunk is deliberately separate:",
+    "it is the largest dependency and is not needed to paint the answer, so it",
+    "must stay out of the initial payload."
+  ],
+  "compute": {
+    "budgetMs": 250,
+    "sizes": [
+      50,
+      150,
+      250
+    ],
+    "//": "Measured on the reference machine. Treat as a regression detector first and an absolute limit second."
+  },
+  "bundle": {
+    "initialKbGzip": 200,
+    "chunks": {
+      "index": 60,
+      "vendor": 110,
+      "charts": 140
+    },
+    "//": "initialKbGzip counts only eagerChunks. Anything else is lazily loaded and does not affect first paint \u2014 counting it would make every new lazy route look like a regression, which is exactly backwards.",
+    "eagerChunks": [
+      "index",
+      "vendor",
+      "rolldown-runtime"
+    ]
+  },
+  "pwa": {
+    "maxPrecacheEntries": 40,
+    "maxPrecacheKb": 1200
+  }
+}

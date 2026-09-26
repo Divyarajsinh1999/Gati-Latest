@@ -1,0 +1,57 @@
+# GATI — continuous integration
+#
+# Runs the same chain a developer runs locally (`npm run verify`), in the same
+# order, so CI can never disagree with a local run about whether something is
+# done.
+#
+# Order is deliberate — cheapest checks first, so a typo fails in seconds
+# rather than after a full build:
+#
+#   lint  →  typecheck  →  tests  →  build  →  size gate  →  perf gate
+#
+# GOLDEN_UPDATE is never set here. Golden-master snapshots may only be
+# rewritten deliberately, by a human, with the reason recorded in DECISIONS.md.
+# A CI job that can rewrite its own expectations is not a gate.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Pinned to match netlify.toml. A version mismatch between CI and the
+          # deploy build fails with an error that looks nothing like its cause.
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint (includes architectural layer boundaries)
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Bundle size gate
+        run: npm run size
+
+      - name: Performance gate
+        run: npm run perf

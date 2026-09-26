@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#090d10" />
+
+    <!--
+      Theme bootstrap — MUST stay inline, synchronous, and in <head>.
+
+      If the theme were applied by React after mount, a dark-mode user
+      would get a full white flash on every single page load. This runs
+      before first paint and sets the attribute src/index.css keys its
+      dark block on, so the very first frame is already correct.
+      src/hooks/useTheme.js READS that decision rather than re-making it.
+
+      DUPLICATION WARNING: the storage key, media query and both theme
+      colours are repeated from src/utils/theme.js. That is deliberate —
+      an inline script cannot import a module without becoming async,
+      which defeats the entire point. There is a test
+      (utils/__tests__/theme.test.js) that reads this file and asserts
+      these values stay in sync with theme.js, so drift fails the build
+      rather than showing up as a flash in production.
+    -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('gati.theme-preference');
+          if (stored !== 'light' && stored !== 'dark' && stored !== 'system') stored = 'dark';
+          var dark =
+            stored === 'dark' ||
+            (stored === 'system' &&
+              window.matchMedia &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', dark ? '#090d10' : '#eef2f1');
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      })();
+    </script>
+
+    <!--
+      Splash bootstrap — same reasoning as the theme block above, same
+      constraint: it has to be true before the first frame.
+
+      The launch splash is dark. Without this, a light-theme load paints the
+      light canvas colour, then React mounts and paints a near-black splash
+      over it: a white flash on every launch, which is the exact thing the
+      splash exists to avoid. The attribute is removed by
+      hooks/useSplashSequence.js once the splash is genuinely gone, and the
+      theme-colour is put back to the theme's own value at the same moment.
+
+      DUPLICATION WARNING: the colour is repeated from src/config/splash.js
+      and again as `background_color` in the manifest (vite.config.js).
+      A test (config/__tests__/splash.test.js) reads all three and fails the
+      build on drift, rather than letting it surface as a flash on a phone.
+    -->
+    <style>
+      html[data-splash='active'],
+      html[data-splash='active'] body { background: #0b0f14; }
+    </style>
+    <script>
+      (function () {
+        try {
+          document.documentElement.setAttribute('data-splash', 'active');
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m) m.setAttribute('content', '#0b0f14');
+        } catch (e) {
+          /* No splash styling is survivable; a broken boot is not. */
+        }
+      })();
+    </script>
+    <link rel="preload" as="image" href="/brand/gati-splash.webp" type="image/webp" />
+    <meta name="description" content="Relative-strength momentum ranking and backtesting dashboard for NIFTY 50, Midcap 150 and Smallcap 250." />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <!--
+      TYPEFACES ARE SELF-HOSTED since v1.5.1 — see the @font-face block in
+      src/index.css for the full reasoning, including why latin-ext is
+      mandatory (the rupee sign lives there).
+
+      Preloading only the two faces above the fold on first paint: Manrope
+      latin for the shell's labels, DM Mono 500 latin for the figures. The
+      latin-ext files are NOT preloaded — they are needed the moment a price
+      renders, but that is after the shell, and preloading four files
+      competes with the JS bundle for the same early bandwidth.
+
+      `crossorigin` is required even for same-origin font preloads: fonts are
+      fetched in CORS mode, and without it the browser downloads the file
+      twice and warns about an unused preload.
+    -->
+    <link rel="preload" href="/fonts/Manrope-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/DMMono500-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <title>Gati — Relative Strength Momentum</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

@@ -1,0 +1,1602 @@
+@import "tailwindcss";
+
+/*
+  Design tokens — Gati
+  ====================
+  Every colour in the app is a token declared here. `[data-theme="dark"]`
+  below re-declares the SAME NAMES with dark values, which is why no
+  component in this codebase carries a `dark:` variant: the cascade does
+  the work, so a component written once is correct in both themes.
+
+  PALETTE PROVENANCE — v1.5.0, M14. The scheme is the "terminal" language
+  of the owner's reference build, adopted under D18 and measured rather
+  than eyeballed. Ground #090d10, panels #10161a, hairlines #222d34, and
+  an acid accent that carries brand, rank and benchmark.
+
+  THE TOKEN NAMES DID NOT CHANGE, ONLY THEIR VALUES. `gold` still means
+  benchmark / brand / rank; it is now acid lime rather than gold. Keeping
+  the names is what made this reskin a palette edit instead of a rewrite:
+  every component already reads `var(--color-gold)`, so none of them
+  needed touching. Do not rename these to match their new hues — the name
+  encodes the MEANING, and the meaning is what must stay stable.
+
+      gold     benchmark, brand, rank      (never decoration)
+      gain     ahead of the benchmark      (only on signed values)
+      loss     behind the benchmark        (only on signed values)
+      chrome   ground / sidebar
+
+  DARK IS THE DEFAULT (D19), and the light theme is retained. Light is
+  DERIVED, not sampled: #d7ff43 on white measures 1.15:1 and is unreadable
+  as text. So each accent carries two tones in light mode — a darkened
+  text-safe tone and the original bright tone for fills and chart strokes,
+  which carry no text. That is the same `gold` / `gold-fill` split this
+  palette already used, now extended to all three universe accents.
+
+  EVERY PAIR BELOW IS MEASURED. 27 foreground/background pairings across
+  both themes clear WCAG AA, and the suite in design/__tests__ fails the
+  build if one regresses. Four greys from the reference build were lifted
+  because they did not clear it: its section labels sit at 2.76:1, its
+  report captions at 2.30:1, its table headers at 2.93:1 and its 8px
+  disclaimer at 2.79:1. Hue preserved, luminance raised the minimum needed.
+
+  TYPOGRAPHY. Manrope for UI and display; DM Mono for every figure, label,
+  eyebrow and timestamp. The mono-on-all-numerals rule is what makes this
+  read as an instrument rather than a website — it is load-bearing, not
+  stylistic, because tabular figures are what let a column of prices be
+  scanned down rather than read across.
+
+  THE ONE VISUAL IDEA: relative strength is a SIGNED quantity — a stock
+  measured against its benchmark — so it renders as a bar growing from a
+  centreline with the benchmark drawn beside it as a hatched ghost bar
+  (see components/data/index.jsx). The gap between the two IS the
+  RS number. Everything else in the interface stays quiet so that reads.
+*/
+/* Safe-area insets, mirrored as custom properties.
+
+   `env()` is only usable inside CSS. JavaScript that needs to keep a FIXED
+   panel clear of a notch, a rounded corner or a home indicator has no way to
+   read it otherwise — so it is mirrored here, where getComputedStyle can see
+   it. Used by hooks/usePopoverPosition.js. Resolves to 0px on every device
+   without insets, which is the correct answer there. */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  /* The bottom navigation's own height, WITHOUT its safe-area padding.
+     Declared here because two places need to agree on it: the bar draws
+     itself this tall, and every scrollable page reserves this much at its
+     foot so the last element can clear it. A literal in either place is a
+     literal that will drift. */
+  --gati-bottom-nav: 56px;
+}
+
+/*
+  BOTTOM CLEARANCE FOR A FIXED NAVIGATION BAR.
+
+  ═══════════════════════════════════════════════════════════════════════
+  This exists because the previous attempt silently did nothing.
+
+  `<main>` carried `className="pb-24"` AND `style={{ padding: '0 16px' }}`.
+  An inline `padding` SHORTHAND sets all four sides, so it reset
+  padding-bottom to zero and beat the class on specificity. The comment
+  above it described reserved space that was not reserved: measured across
+  ten routes, computed padding-bottom was 0px on every one, and the final
+  card on every screen sat under the bar.
+
+  Longhand here, and longhand in the component, so a shorthand can never
+  quietly win again.
+  ═══════════════════════════════════════════════════════════════════════
+
+  The bar's height plus the home indicator plus a thumb's worth of margin —
+  derived, not a magic number, so changing the bar changes the clearance.
+*/
+.gati-main-clearance {
+  padding-bottom: calc(var(--gati-bottom-nav) + var(--safe-bottom) + 16px);
+}
+
+/* At lg the navigation is a side rail, so no bottom bar exists to clear. */
+@media (min-width: 1024px) {
+  .gati-main-clearance {
+    padding-bottom: 40px;
+  }
+}
+
+
+/* ═════════════════════════════════════════════════════════════════════════
+   SELF-HOSTED TYPEFACES — M14 follow-up
+
+   These loaded from fonts.googleapis.com until v1.5.1. That is a
+   render-blocking request to a third party on every cold start, and it fails
+   entirely offline — which matters here, because Gati is an installed PWA
+   whose whole point is that yesterday's ranking is still readable on a train
+   with no signal. A cached shell in a fallback face is a different-looking
+   application.
+
+   SIX FILES, 87 kB TOTAL, precached by the service worker.
+
+   MANROPE IS A VARIABLE FONT: one file serves 400-800, which is why five
+   weights list the same source. DM MONO IS NOT — 400 and 500 are separate
+   files. (Downloading them with a filename keyed on family+subset alone
+   silently overwrote one with the other; the weights are in the DM Mono
+   filenames for that reason.)
+
+   ─────────────────────────────────────────────────────────────────────────
+   WHY latin-ext IS NOT OPTIONAL: THE RUPEE SIGN LIVES THERE.
+
+   U+20B9 falls in latin-ext's U+20AD-20C0, not in latin. Shipping latin
+   alone would have left every price on the app's most-used glyph rendering
+   from a fallback face. Verified with fontTools rather than assumed.
+
+   WHAT THESE FILES DO NOT CONTAIN, and this is unchanged from the hosted
+   version rather than a regression introduced here:
+     - DM Mono has NO rupee sign in any subset. Prices set in the mono face
+       already take ₹ from the fallback stack, and still do.
+     - Neither family carries the geometric arrows the UI uses (U+25B2 ▲,
+       U+25BC ▼, U+2192 →). Also already fallback.
+   The stacks below therefore keep real fallbacks. They are load-bearing,
+   not decoration.
+   ─────────────────────────────────────────────────────────────────────────
+
+   font-display: swap — text is readable in a fallback immediately and
+   reflows when the face arrives. The alternative, `block`, gives up to 3s of
+   invisible text, which on a slow connection means a blank price table.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/Manrope-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/Manrope-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/DMMono400-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/DMMono400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/DMMono500-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/DMMono500-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@theme {
+  --font-display: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* ---- LIGHT (derived from the dark terminal, not sampled) ---- */
+
+  /* Text. `ink` is a TEXT colour and must never be used as a background:
+     it inverts to near-white in dark mode. Use `chrome` for dark panels. */
+  --color-ink: #0d1417;
+  --color-ink-soft: #33424a;
+  --color-ink-muted: #4e6069;
+
+  /* Surfaces. `canvas` is the page, `surface` is a card, `surface-raised`
+     is a hover/nested state. Very slightly cool and green-leaning so the
+     light theme reads as the same instrument with the lamp on, rather
+     than as a different product. */
+  --color-canvas: #eef2f1;
+  --color-surface: #ffffff;
+  --color-surface-raised: #e7edeb;
+  --color-line: #d5ddda;
+  --color-line-strong: #bcc7c3;
+
+  /* Chrome — the sidebar and any deliberately dark panel. IDENTICAL in
+     both themes on purpose: the sidebar is the terminal's frame and does
+     not invert. In light mode it is the one dark region on screen, which
+     is exactly how the reference build reads. */
+  --color-chrome: #0c1114;
+  --color-chrome-ink: #edf3f4;
+
+  /* Gold = benchmark / brand / rank. Acid lime since M14.
+     `gold` is the TEXT-SAFE tone (5.90:1 on white); `gold-fill` is the
+     bright tone for solid fills and chart strokes, which carry no text.
+     `on-gold` is what goes ON a lime fill — near-black, because white on
+     lime measures 1.48:1 and is the worst pairing in the palette. */
+  --color-gold: #5c6b00;
+  --color-gold-fill: #c2e21f;
+  --color-gold-soft: #f2f8d9;
+  --color-on-gold: #141a00;
+
+  --color-gain: #0a7049;
+  --color-gain-fill: #12a56b;
+  --color-gain-soft: #e0f3ea;
+  --color-loss: #b3303f;
+  --color-loss-fill: #e0455b;
+  --color-loss-soft: #fbe8ea;
+  --color-warn: #8a5606;
+  --color-warn-soft: #fbeeda;
+
+  /* ---- PER-UNIVERSE ACCENT ----
+     The best idea in the reference build: each universe owns a hue, so
+     "which universe am I looking at" is answered pre-attentively by the
+     active nav bar, the RS pill, the equity stroke and the positive bars,
+     without a label being read.
+
+     `-fill` is the bright tone (dark theme text, and fills/strokes in
+     both). The bare token is the text-safe tone for light mode. Large cap
+     deliberately equals the brand accent: it is the default universe. */
+  --color-uni-nifty50: #5c6b00;
+  --color-uni-nifty50-fill: #d7ff43;
+  --color-uni-midcap150: #0d6285;
+  --color-uni-midcap150-fill: #7dd3fc;
+  --color-uni-smallcap250: #8e3a9e;
+  --color-uni-smallcap250-fill: #f0abfc;
+
+  /* Glass — chrome and hero panels ONLY. Never behind a data table:
+     backdrop blur lowers contrast exactly where precision matters most. */
+  /* Disabled: muted ink at reduced opacity, surface unchanged. Formalised as
+     a token in M4 — it was previously a per-component convention, which meant
+     every component was free to invent its own. Must stay >= 3:1 so a
+     disabled control reads as legibly unavailable rather than invisible. */
+  --color-disabled-ink: rgba(86, 101, 121, 0.62);
+  --color-glass: rgba(255, 255, 255, 0.62);
+  --color-glass-line: rgba(14, 27, 44, 0.10);
+}
+
+/*
+  DARK THEME
+  ----------
+  Set on <html> by the inline bootstrap in index.html BEFORE first paint,
+  so a dark-mode user never sees a white flash. src/hooks/useTheme.js
+  reads that decision rather than re-making it.
+
+  Not pure black: dense tabular numerals on #000 produce harsh halation.
+  #090d10 is the reference build's own ground and carries a trace of blue.
+*/
+[data-theme="dark"] {
+  --color-ink: #edf3f4;
+  --color-ink-soft: #c4ced2;
+
+  /* The reference build's muted grey is #75838e. It measures 4.68:1 on a
+     panel — which passes — but 4.34:1 on a RAISED panel, which does not,
+     and raised panels are where most secondary labels actually sit.
+     Lifted to clear AA on every surface it can land on. */
+  --color-ink-muted: #8a98a2;
+
+  --color-canvas: #090d10;
+  --color-surface: #10161a;
+  --color-surface-raised: #151e23;
+  --color-line: #222d34;
+  --color-line-strong: #33434b;
+
+  /* Identical to light: the sidebar does not invert. */
+  --color-chrome: #0c1114;
+  --color-chrome-ink: #edf3f4;
+
+  /* On this ground the acid IS the readable tone, so `gold` and
+     `gold-fill` converge. `gold-soft` is an opaque tint rather than an
+     alpha wash so the contrast gate can measure it — an rgba() token
+     cannot be checked, and an unmeasurable token is one that drifts. */
+  --color-gold: #d7ff43;
+  --color-gold-fill: #d7ff43;
+  --color-gold-soft: #1e2708;
+  --color-on-gold: #0b1013;
+
+  --color-gain: #5de3b0;
+  --color-gain-fill: #3fcf98;
+  --color-gain-soft: #0f2a20;
+  --color-loss: #ff6278;
+  --color-loss-fill: #e8546b;
+  --color-loss-soft: #2b1218;
+  --color-warn: #ffb454;
+  --color-warn-soft: #2e2110;
+
+  /* Dark mode reads the bright tone for BOTH text and fill, so the two
+     converge exactly as `gold` does. */
+  --color-uni-nifty50: #d7ff43;
+  --color-uni-nifty50-fill: #d7ff43;
+  --color-uni-midcap150: #7dd3fc;
+  --color-uni-midcap150-fill: #7dd3fc;
+  --color-uni-smallcap250: #f0abfc;
+  --color-uni-smallcap250-fill: #f0abfc;
+
+  --color-disabled-ink: rgba(138, 152, 162, 0.62);
+  --color-glass: rgba(16, 22, 26, 0.72);
+  --color-glass-line: rgba(237, 243, 244, 0.10);
+}
+
+@layer base {
+  html {
+    font-family: var(--font-body);
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.028em;
+    font-weight: 600;
+  }
+  /* Every number in the app. Tabular figures keep decimal points aligned
+     down a column, which is the whole reason a mono face is here. */
+  .tabular {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  /*
+    Large display figures. Light weight + tight tracking so a big number
+    reads as precise rather than shouty. Pair with `.figure-dim` on the
+    trailing digits (see utils/formatters.jsx) so magnitude lands first
+    and precision second: ₹60,700 reads "sixty thousand" at a glance.
+  */
+  /*
+    M14 MOVED THIS ONTO THE MONO FACE, and it is the single most defining
+    change in the reskin. The reference build sets every headline figure in
+    DM Mono 500 with -0.04em tracking; a metric strip in a sans reads as a
+    marketing page, and the same strip in a mono reads as an instrument.
+
+    Weight 500, not 300. Manrope 300 was never in the font request, so the
+    old value was being synthesised by the browser at whatever the nearest
+    loaded weight was — it looked deliberate and was not.
+  */
+  .figure {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    letter-spacing: -0.04em;
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+  }
+  /* DM Mono ships 400 and 500 only. The old 200 here was synthesised, so
+     the trailing digits were dimmed by COLOUR alone while pretending to be
+     dimmed by weight as well. 400 against the figure's 500 is a real,
+     loaded contrast. */
+  .figure-dim {
+    color: var(--color-ink-muted);
+    font-weight: 400;
+  }
+  /* Visible keyboard focus everywhere, per accessibility floor */
+  :focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+    /* The reduced-motion path is a COMPLETE experience, not a degraded one.
+       The shimmer becomes a static fill and the status dot stops pulsing;
+       no information is lost either way, because neither ever carried any. */
+    .gati-skeleton { background-image: none !important; }
+    .gati-status-pulse { opacity: 1 !important; }
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   MOTION — added in M4.
+
+   Two animations exist in the entire application. Both preserve continuity;
+   neither entertains. Nothing else animates on a loop, because a financial
+   interface that performs undermines the trust its numbers are earning.
+
+   ONE EXCEPTION, added in v1.3.0 and owner-specified (D17): the launch
+   splash at the bottom of this file. It is exempt because it plays before
+   any number is on screen — it cannot decorate data or delay a reading of
+   it — and because it never waits for a fetch. The principle above still
+   governs every screen in the application.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Skeleton shimmer: 1.5s per cycle with a pause, low contrast. Faster reads
+   as agitation, and an agitated loading state makes a slow load feel broken. */
+@keyframes gati-shimmer {
+  0%   { background-position: -160% 0; }
+  60%  { background-position: 260% 0; }
+  100% { background-position: 260% 0; }
+}
+
+.gati-skeleton {
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    var(--color-surface) 45%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: gati-shimmer 1.9s linear infinite;
+}
+
+/* Status dot: pulses ONLY while data is genuinely live. Stopping it in every
+   other state is what makes its presence mean something. */
+@keyframes gati-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+.gati-status-pulse {
+  animation: gati-pulse 2s ease-in-out infinite;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────
+   MICRO-INTERACTIONS — added in the post-M8 refinement pass.
+
+   Every rule here is cheap: opacity and transform only, both compositor
+   properties, so none of them triggers layout or paint. Nothing loops, and
+   nothing exceeds the 300ms ceiling.
+
+   The test each one had to pass: if removed, would the reader lose the
+   thread of what changed? Anything that failed it was not added.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Skip link — the first tab stop on every page. Visible only when focused,
+   because a permanently visible one is chrome nobody asked for, and an
+   invisible one is a legal fiction. */
+.gati-skip-link {
+  position: absolute;
+  left: 16px;
+  top: -60px;
+  z-index: 100;
+  padding: 10px 16px;
+  border-radius: 6px;
+  background: var(--color-gold-fill);
+  color: var(--color-on-gold);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: top 150ms ease;
+}
+.gati-skip-link:focus {
+  top: 12px;
+}
+
+/* Route change: content cross-fades, the frame does not move. No slide —
+   a slide implies spatial adjacency and would suggest a swipe navigation
+   that deliberately does not exist. */
+@keyframes gati-route-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: none; }
+}
+.gati-route-enter {
+  animation: gati-route-in 200ms ease-out;
+}
+
+/* Hover: the surface lifts one step. Text colour never changes on hover —
+   a shifting colour on a price reads as the value having changed. */
+.gati-hover-lift {
+  transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+.gati-hover-lift:hover {
+  background: var(--color-surface-raised) !important;
+}
+
+/* Interactive rows: a 1px nudge is enough to confirm the row is live without
+   moving the number the reader is trying to read. */
+.gati-row-interactive {
+  transition: background-color 120ms ease;
+}
+.gati-row-interactive:hover {
+  background: var(--color-surface-raised);
+}
+
+/* A value that changed on a live refresh cross-fades in place.
+   NEVER a count-up: a price animating through values it never held is a lie
+   about market data, and it delays comprehension for decoration. */
+@keyframes gati-value-in {
+  from { opacity: 0.35; }
+  to   { opacity: 1; }
+}
+.gati-value-changed {
+  animation: gati-value-in 150ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gati-route-enter,
+  .gati-value-changed {
+    animation: none !important;
+  }
+  .gati-skip-link {
+    transition: none !important;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────
+   LAUNCH SPLASH — "Luxury Light Sweep" (v1.3.0, D17).
+
+   Every animated property here is `opacity` or `transform`. Both are
+   compositor properties: no layout, no paint, no main-thread work per
+   frame. That is the whole reason the mask is swept by counter-translation
+   instead of by `mask-position` — see SplashScreen.jsx for the geometry.
+
+   Durations arrive as custom properties from config/splash.js. Nothing in
+   this block hard-codes a millisecond.
+   ───────────────────────────────────────────────────────────────────── */
+
+.gati-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  /* A single flat colour. No gradient, no texture — the mark supplies the
+     only light in the frame, which is what makes the sweep read. */
+  background: var(--splash-bg);
+  opacity: 1;
+  /* The splash swallows the first tap rather than letting it fall through
+     to an interface the person cannot see yet. */
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
+  /* Sits under the OS notch/home indicator cleanly on phones. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.gati-splash--leaving {
+  opacity: 0;
+  transition: opacity var(--splash-fade-duration) var(--splash-ease);
+  /* Once it is fading it must not eat clicks meant for the app beneath. */
+  pointer-events: none;
+}
+
+/* Square, centred, and scaled from the viewport's narrow axis — never
+   stretched, never cropped, identical proportions on every device. */
+.gati-splash__stage {
+  position: relative;
+  width: var(--splash-size);
+  aspect-ratio: 1 / 1;
+  /* Promotes the whole stage once, rather than each layer separately. */
+  transform: translateZ(0);
+}
+
+.gati-splash__stage > * {
+  position: absolute;
+  inset: 0;
+}
+
+/* ---- the unlit mark, present from the first frame ---------------------- */
+
+.gati-splash__dim {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  /* Not opacity: dropping opacity would show the background THROUGH the
+     mark. Brightness keeps it opaque and simply unlit, which is what an
+     unilluminated metal object actually looks like. */
+  filter: brightness(0.18) saturate(0.6);
+  user-select: none;
+}
+
+/* ---- the lit mark, revealed by a sweeping mask ------------------------- */
+
+.gati-splash__lit {
+  /*
+    TWO AND A HALF stage-widths wide, and the travel is 1.5 of them.
+
+    An earlier version used four widths and three of travel. It worked, and
+    it was wrong: with the mark occupying only a quarter of the wrapper, the
+    soft edge crossed it in about 180ms of a 900ms sweep and the remaining
+    720ms was dead air. Rendered frames, not reasoning, showed that.
+
+    At 250%/1.5 the edge is arriving at the mark's left side on the first
+    frame and clearing its right side on the last, so the whole duration is
+    the reveal. The mask stops below are what put it there:
+
+      t=0  mark sits at 60–100% of the wrapper -> past 58%, transparent
+      t=1  mark sits at  0–40% of the wrapper -> before 42%, opaque
+  */
+  width: 250%;
+  height: 100%;
+  inset: 0 auto 0 0;
+  -webkit-mask-image: linear-gradient(
+    105deg,
+    #000 0%,
+    #000 42%,
+    rgba(0, 0, 0, 0) 58%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  mask-image: linear-gradient(
+    105deg,
+    #000 0%,
+    #000 42%,
+    rgba(0, 0, 0, 0) 58%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  transform: translate3d(-60%, 0, 0);
+  animation: gati-splash-window var(--splash-sweep-duration) var(--splash-ease)
+    var(--splash-sweep-delay) both;
+}
+
+.gati-splash__lit-art {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  height: 100%;
+  object-fit: contain;
+  transform: translate3d(150%, 0, 0);
+  animation: gati-splash-art var(--splash-sweep-duration) var(--splash-ease)
+    var(--splash-sweep-delay) both;
+  user-select: none;
+}
+
+/* -60% of 250% and +150% of 40% are both one and a half stage-widths, in
+   opposite directions: the mask travels, the artwork does not move at all.
+   If these ever stop cancelling, the mark slides across the screen. */
+@keyframes gati-splash-window {
+  from { transform: translate3d(-60%, 0, 0); }
+  to   { transform: translate3d(0, 0, 0); }
+}
+
+@keyframes gati-splash-art {
+  from { transform: translate3d(150%, 0, 0); }
+  to   { transform: translate3d(0, 0, 0); }
+}
+
+/* ---- the specular band riding the reveal edge -------------------------- */
+
+.gati-splash__glint {
+  /* Clipped to the mark's own corner radius (0.18 of the side, the value
+     the artwork itself was drawn with) so the light never spills into a
+     square edge the logo does not have. */
+  border-radius: 18%;
+  overflow: hidden;
+  /* Screen-blend adds light rather than painting over it, which is what
+     keeps the metal reading as metal instead of as a white wash. */
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.gati-splash__glint-band {
+  position: absolute;
+  top: -25%;
+  left: 0;
+  width: 100%;
+  height: 150%;
+  /*
+    Narrow and restrained. At 0.62 alpha over a wider band this washed the
+    whole card silver on the way past — a light bar rather than a highlight
+    on metal. Rendered and pulled back.
+  */
+  background: linear-gradient(
+    105deg,
+    rgba(255, 226, 158, 0) 38%,
+    rgba(255, 234, 182, 0.17) 46%,
+    rgba(255, 246, 214, 0.42) 50%,
+    rgba(255, 234, 182, 0.17) 54%,
+    rgba(255, 226, 158, 0) 62%
+  );
+  transform: translate3d(-75%, 0, 0);
+  /* Same duration, same easing, same delay as the mask. The band's centre
+     starts and ends exactly where the reveal edge does, so the light sits
+     ON the edge for the whole sweep instead of drifting off it. */
+  animation: gati-splash-glint var(--splash-sweep-duration) var(--splash-ease)
+    var(--splash-sweep-delay) both;
+}
+
+/* The band's core starts and ends exactly where the mask's soft edge does,
+   so the light sits ON the reveal rather than trailing it. */
+@keyframes gati-splash-glint {
+  from { transform: translate3d(-75%, 0, 0); }
+  to   { transform: translate3d(75%, 0, 0); }
+}
+
+/* ---- the halo, rising late and settling faint -------------------------- */
+
+.gati-splash__halo {
+  /* Larger than the stage so the falloff is off-mark and never draws an
+     edge of its own. */
+  inset: -22%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(226, 176, 86, 0.30) 0%,
+    rgba(226, 176, 86, 0.13) 38%,
+    rgba(226, 176, 86, 0) 66%
+  );
+  opacity: 0;
+  pointer-events: none;
+  animation: gati-splash-halo var(--splash-glow-duration) var(--splash-ease)
+    var(--splash-glow-delay) both;
+}
+
+@keyframes gati-splash-halo {
+  from { opacity: 0;    transform: scale(0.92); }
+  55%  { opacity: 1;    transform: scale(1.04); }
+  to   { opacity: 0.34; transform: scale(1); }
+}
+
+/* ---- reduced motion: a complete alternative, not a degraded one -------- */
+
+.gati-splash--still .gati-splash__dim {
+  /* The mark is simply lit. No sweep to reveal it, so nothing to reveal. */
+  filter: none;
+}
+
+.gati-splash--still .gati-splash__lit,
+.gati-splash--still .gati-splash__glint,
+.gati-splash--still .gati-splash__halo {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gati-splash__lit,
+  .gati-splash__lit-art,
+  .gati-splash__glint-band,
+  .gati-splash__halo {
+    animation: none !important;
+  }
+}
+
+/* Horizontal scrollers (the index strip, the ranking table) hide their bar
+   on desktop: the content is visibly clipped at the edge, which is the
+   affordance, and a permanent grey bar under a row of figures reads as
+   chrome. Keyboard and trackpad scrolling are unaffected. */
+.gati-no-scrollbar::-webkit-scrollbar { display: none; }
+.gati-no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Present to assistive technology, absent from the page.
+
+   Not `display: none` and not `visibility: hidden` — both remove the element
+   from the accessibility tree, which is the opposite of the intent. The clip
+   rectangle is the technique that leaves it readable by a screen reader. Used
+   for table captions, which give a data table its name. */
+.gati-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────
+   THE PRIMARY METRIC GRID — 2x2 on a phone.
+
+   `auto-fit, minmax()` is used everywhere else in the app and is right for
+   a variable number of cells. It is wrong here. With four cells and a 130px
+   minimum it produced two columns at 390px but three at 430px and four at
+   520px, so the same four figures reflowed into a different shape on every
+   other device — and at 320px it collapsed toward a single column, turning
+   the top of the screen into a stack the reader had to scroll.
+
+   Fixed at two columns instead, so the arrangement is the same on every
+   phone: price and today on top, month and rank beneath. Four across only
+   once there is genuinely room, which is a tablet.
+   ───────────────────────────────────────────────────────────────────── */
+.gati-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--color-line);
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+@media (min-width: 700px) {
+  .gati-metric-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* A focus ring drawn on a WRAPPER when something inside it takes focus.
+
+   For composite fields — an icon, an input and a clear button sharing one
+   box — where outlining the input alone would trace a smaller rectangle
+   inside the visible field. The input keeps `outline: none`; this replaces
+   what that removed, rather than leaving the control with no focus state
+   at all, which is what the search box shipped with. */
+.gati-focus-within:focus-within {
+  outline: 2px solid var(--color-gold-fill);
+  outline-offset: 2px;
+}
+
+
+/* ═════════════════════════════════════════════════════════════════════════
+   THE TERMINAL SHELL — M14 (D18)
+
+   Ported from the owner's reference build, with every literal colour
+   replaced by a token so the shell inverts with the theme. The reference
+   is dark-only; this is not, so a hardcoded #10161a here would have been a
+   panel that stayed black on a light page.
+
+   CLASS-BASED, NOT INLINE. The rest of this codebase leans on inline style
+   objects, but the shell is one fixed frame reused by every route — the
+   place where a stylesheet actually pays for itself. Rules here are the
+   only ones in the app allowed to position anything `fixed`.
+
+   THE MEASUREMENTS ARE THE REFERENCE BUILD'S, not re-derived: 236px rail,
+   66px topbar, 31px tape, 760px drawer breakpoint. Changing them would
+   make this "inspired by" rather than the port that was asked for.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --gati-sidebar: 236px;
+  --gati-topbar: 66px;
+  --gati-tape: 31px;
+}
+
+/* Below the drawer breakpoint the sidebar is off-canvas, so content owns
+   the full width. Declared as a variable rather than a media query on every
+   consumer, so one rule moves the whole layout. */
+@media (max-width: 760px) {
+  :root { --gati-sidebar: 0px; }
+}
+
+.gati-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 78% -10%, color-mix(in srgb, var(--color-gold-fill) 9%, transparent), transparent 30%),
+    var(--color-canvas);
+}
+
+/* ---- SIDEBAR ---- */
+
+.gati-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  width: var(--gati-sidebar);
+  padding: 23px 16px;
+  background: var(--color-chrome);
+  border-right: 1px solid var(--color-line);
+}
+
+.gati-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px 30px;
+}
+
+/* The mark is supplied artwork (S2) and is never redrawn. It sits on its
+   own rounded tile rather than the reference build's lime square, because
+   that square held a line icon and this holds a photograph-like PNG — a
+   lime backdrop behind it would fight the artwork's own colours. */
+.gati-brand-mark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  overflow: hidden;
+  flex: none;
+}
+
+.gati-brand-text { display: flex; flex-direction: column; min-width: 0; }
+
+.gati-brand-text strong {
+  font-size: 13px;
+  letter-spacing: 0.11em;
+  color: var(--color-chrome-ink);
+}
+
+.gati-brand-text span {
+  margin-top: 2px;
+  font: 400 9px var(--font-mono);
+  letter-spacing: 0.17em;
+  /* Lifted from the reference's #75838e: it sits on chrome in BOTH themes,
+     and chrome does not lighten, so this needs to clear AA against a fixed
+     near-black rather than against whatever the page is. */
+  color: var(--color-ink-muted);
+}
+
+.gati-sidebar-section {
+  margin: 8px 0 9px;
+  padding: 0 10px;
+  font: 500 9px var(--font-mono);
+  letter-spacing: 0.18em;
+  /* Reference used #4f5c64 — 2.76:1 on chrome. Section labels are the
+     structure of the navigation; they are not decoration and must be read. */
+  color: var(--color-ink-muted);
+}
+
+.gati-nav-list { display: grid; gap: 4px; }
+
+.gati-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  height: 42px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-ink-muted);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.gati-nav-item:hover {
+  background: color-mix(in srgb, var(--color-chrome-ink) 7%, transparent);
+  color: var(--color-chrome-ink);
+}
+
+/* ACTIVE STATE CARRIES SHAPE AND WEIGHT, NOT ONLY COLOUR — the accent bar
+   at the left edge and the label weight both change, so the state survives
+   a colour-blind reader and a greyscale screenshot. This was already the
+   rule in the component this replaces; the reference build used colour
+   alone, and that part of it is not ported. */
+.gati-nav-item[aria-current="page"] {
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--color-gold-fill) 13%, transparent),
+    color-mix(in srgb, var(--color-gold-fill) 3%, transparent));
+  color: var(--color-chrome-ink);
+  font-weight: 700;
+}
+
+.gati-nav-item[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  width: 2px;
+  height: 22px;
+  background: var(--color-gold-fill);
+  box-shadow: 0 0 12px var(--color-gold-fill);
+}
+
+.gati-nav-item[aria-current="page"] svg { color: var(--color-gold-fill); }
+
+.gati-nav-item span {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- DATA ENGINE CARD ---- */
+
+.gati-system-card {
+  margin-top: 6px;
+  padding: 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--color-chrome-ink) 4%, transparent);
+}
+
+.gati-system-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--color-ink-muted);
+}
+
+.gati-system-row span { flex: 1; }
+
+.gati-system-card > strong,
+.gati-system-card > small { display: block; margin-left: 22px; }
+
+.gati-system-card > strong {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--color-chrome-ink);
+}
+
+.gati-system-card > small {
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--color-ink-muted);
+}
+
+.gati-sidebar-bottom { margin-top: auto; }
+
+.gati-version-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 10px 0;
+  border-top: 1px solid var(--color-line);
+  font: 400 9px var(--font-mono);
+  color: var(--color-ink-muted);
+}
+
+/* ---- WORKSPACE ---- */
+
+.gati-workspace {
+  margin-left: var(--gati-sidebar);
+  min-height: 100vh;
+}
+
+.gati-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--gati-topbar);
+  padding: 0 28px;
+  border-bottom: 1px solid var(--color-line);
+  background: color-mix(in srgb, var(--color-canvas) 88%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.gati-topbar-left,
+.gati-topbar-right { display: flex; align-items: center; gap: 14px; }
+
+.gati-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  min-width: 0;
+}
+
+.gati-breadcrumb span { color: var(--color-ink-muted); }
+.gati-breadcrumb i { color: var(--color-line-strong); font-style: normal; }
+.gati-breadcrumb strong { font-weight: 600; color: var(--color-ink); }
+
+.gati-icon-button {
+  display: grid;
+  place-items: center;
+  /* 36px in the reference. Raised to 44 so it meets the touch-target floor
+     the accessibility gate enforces — the reference build has no such gate
+     and its topbar controls are 36px squares. */
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-ink-muted);
+  cursor: pointer;
+}
+
+.gati-icon-button:hover { color: var(--color-ink); }
+
+.gati-menu-button { display: none; }
+
+.gati-search-button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 190px;
+  height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-ink-muted);
+  cursor: pointer;
+}
+
+.gati-search-button span { flex: 1; text-align: left; font-size: 11px; }
+
+.gati-search-button kbd {
+  padding: 2px 5px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 4px;
+  font: 500 9px var(--font-mono);
+}
+
+.gati-content {
+  max-width: 1540px;
+  margin: auto;
+  /* LONGHAND BOTTOM, DELIBERATELY, and derived rather than a literal.
+
+     The bottom bar is gone in M14, so there is no bar to clear — but the
+     home indicator on a notched phone has not gone anywhere, and content
+     that ends flush with the viewport ends underneath it. This is the same
+     reasoning that produced --gati-bottom-nav; only the thing being cleared
+     changed.
+
+     `<main>` now carries NO inline style at all, which retires the original
+     fault at its source: there is no style object left for a `padding`
+     shorthand to appear in and silently beat this class. */
+  padding-top: 30px;
+  padding-left: 30px;
+  padding-right: 30px;
+  padding-bottom: calc(60px + var(--safe-bottom));
+}
+
+/* ---- MOBILE DRAWER ---- */
+
+@media (max-width: 760px) {
+  .gati-sidebar {
+    width: 260px;
+    transform: translateX(-102%);
+    /* VISIBILITY, NOT JUST TRANSFORM. A translated panel is still focusable,
+       so without this a keyboard user tabs through seven invisible links
+       behind the scrim. `visibility` also animates discretely — it flips at
+       the END of the transition when hiding and at the START when showing,
+       which is exactly the behaviour wanted and the reason it is delayed
+       here rather than eased. */
+    visibility: hidden;
+    transition: transform 250ms ease, visibility 0s linear 250ms;
+    box-shadow: 20px 0 60px rgba(0, 0, 0, 0.5);
+  }
+  .gati-sidebar.gati-sidebar--open {
+    transform: none;
+    visibility: visible;
+    transition: transform 250ms ease, visibility 0s;
+  }
+  .gati-menu-button { display: grid; }
+  .gati-workspace { margin-left: 0; }
+  .gati-topbar { padding: 0 14px; }
+  .gati-breadcrumb span, .gati-breadcrumb i { display: none; }
+  .gati-content {
+    padding-top: 22px;
+    /*
+      16px, NOT 14 — AND THE VALUE IS LOAD-BEARING.
+
+      InfoTip renders a 14px glyph inside a 44px button with `margin: -15px`,
+      so the tap target deliberately overhangs its own box by 15px on each
+      side to reach the touch-target floor without taking layout space. When
+      one sits flush against the right edge of the content box, that overhang
+      spills into the page gutter.
+
+      With a 14px gutter it spilled 1px past the viewport and the whole
+      document scrolled sideways — measured at 391px against a 390px
+      viewport. The gutter must be at least as wide as the largest hit-area
+      overhang, so it is 16.
+    */
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-bottom: calc(45px + var(--safe-bottom));
+  }
+  .gati-search-button { width: 44px; min-width: 44px; padding: 0; justify-content: center; }
+  .gati-search-button span, .gati-search-button kbd { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gati-sidebar { transition: none; }
+}
+
+/* The scrim behind the open drawer. Sits under the sidebar and over
+   everything else, and is the click target that closes it. */
+.gati-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+  background: rgba(0, 0, 0, 0.55);
+  border: 0;
+}
+
+/* ---- STRATEGY LIBRARY (M14) ---- */
+
+.gati-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 9px var(--font-mono);
+  letter-spacing: 0.16em;
+  color: var(--color-ink-muted);
+}
+
+.gati-strategy-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.gati-strategy-card {
+  position: relative;
+  overflow: hidden;
+  padding: 20px;
+  border: 1px solid var(--color-line);
+  border-radius: 11px;
+  background: var(--color-surface);
+}
+
+/* THE PER-UNIVERSE ACCENT (D18). Each card is tinted by the universe it
+   describes, using the same three hues the nav, the RS pills and the charts
+   use — so the colour means "small cap" everywhere rather than meaning
+   "card" here and something else there. */
+.gati-strategy-card[data-universe="nifty50"]     { --accent: var(--color-uni-nifty50-fill); }
+.gati-strategy-card[data-universe="midcap150"]   { --accent: var(--color-uni-midcap150-fill); }
+.gati-strategy-card[data-universe="smallcap250"] { --accent: var(--color-uni-smallcap250-fill); }
+
+.gati-strategy-card::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: var(--accent, var(--color-gold-fill));
+}
+
+.gati-strategy-card::before {
+  content: var(--card-number, "");
+  position: absolute;
+  top: -18px;
+  right: -6px;
+  font: 500 75px var(--font-mono);
+  letter-spacing: -0.1em;
+  /* Deliberately near-invisible: a watermark, not a figure to be read. As a
+     pseudo-element it is ornament in the stylesheet rather than text in the
+     document — see StrategiesScreen.jsx for why that distinction is the
+     point and not a workaround. */
+  color: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  pointer-events: none;
+}
+
+.gati-card-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 38px;
+  border: 1px solid var(--color-line);
+  border-radius: 7px;
+  background: var(--color-surface-raised);
+  color: var(--color-ink);
+  font-size: 11px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.gati-card-button:hover { border-color: var(--accent, var(--color-gold-fill)); }
+
+@media (max-width: 1100px) {
+  .gati-strategy-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .gati-strategy-grid { grid-template-columns: 1fr; }
+}
+
+/* ---- TICKER TAPE (M14) ---- */
+
+.gati-tape-wrap {
+  position: sticky;
+  /* Directly beneath the sticky topbar, so both stay put together and the
+     tape never slides under it. Derived from the topbar height rather than
+     repeated as a literal. */
+  top: var(--gati-topbar);
+  z-index: 19;
+}
+
+.gati-ticker-tape {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  height: var(--gati-tape);
+  padding: 0 30px;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-chrome);
+  color: var(--color-ink-muted);
+  font: 400 9px var(--font-mono);
+  white-space: nowrap;
+  overflow-x: auto;
+}
+
+.gati-tick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  color: var(--color-chrome-ink);
+}
+
+.gati-tick b { font-weight: 500; color: var(--color-ink-muted); }
+.gati-tick em { font-style: normal; display: inline-flex; align-items: center; gap: 3px; }
+
+/* The session note is pushed to the end of the tape on a wide screen, and
+   simply follows the last index on a narrow one — `margin-left:auto` inside
+   a scroller would otherwise pin it against the scrollport edge and leave a
+   gap the reader has to scroll through. */
+.gati-tape-note {
+  flex: none;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-muted);
+}
+
+@media (min-width: 761px) {
+  .gati-tape-note { margin-left: auto; }
+}
+
+@media (max-width: 760px) {
+  .gati-ticker-tape { gap: 18px; padding: 0 14px; }
+}
+
+/* ---- UNIVERSE TABS (M14) ---- */
+
+.gati-universe-tabs {
+  display: flex;
+  /* THE TAB STRIP MUST NEVER WIDEN THE PAGE. At 390px the three labels come
+     to 345px inside a 362px content box and fitted; at 320px they did not,
+     and the whole document scrolled sideways by 78px. It scrolls itself
+     instead — max-width is what makes `overflow-x: auto` below actually
+     bind, since a flex item's default min-width is its content. */
+  max-width: 100%;
+  min-width: 0;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.gati-universe-tab {
+  display: flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 7px;
+  color: var(--color-ink-muted);
+  /* 10px → 12px (owner, 28 Aug 2026). This is the app's primary filter and
+     it was set smaller than the table headers it governs. */
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.gati-universe-tab span {
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  border-radius: 50%;
+  /* Dimmed rather than hidden when inactive: the three colours stay visible
+     as a legend, so the reader can learn that magenta means small cap
+     without having to select it first. */
+  opacity: 0.45;
+  background: var(--accent);
+}
+
+.gati-universe-tab[data-universe="nifty50"] {
+  --accent: var(--color-uni-nifty50-fill);
+  --accent-edge: var(--color-uni-nifty50);
+}
+.gati-universe-tab[data-universe="midcap150"] {
+  --accent: var(--color-uni-midcap150-fill);
+  --accent-edge: var(--color-uni-midcap150);
+}
+.gati-universe-tab[data-universe="smallcap250"] {
+  --accent: var(--color-uni-smallcap250-fill);
+  --accent-edge: var(--color-uni-smallcap250);
+}
+
+.gati-universe-tab:hover { color: var(--color-ink); }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   THE SELECTED TAB (strengthened 28 Aug 2026 — owner: "it's not showing it
+   properly").
+
+   It previously carried `--color-surface-raised` on `--color-surface`, which
+   is a deliberately small step in this palette — the right amount for a
+   card, far too little for the app's primary filter. On a phone in daylight
+   the three tabs read as one undifferentiated strip.
+
+   FOUR SIGNALS NOW, not one:
+     1. a wash of the universe's OWN accent, so which universe is selected and
+        what colour it owns are the same fact
+     2. a 1.5px inset ring in that accent — the edge does the work when the
+        wash is too subtle to see in bright light
+     3. full-weight ink at 800 rather than 700
+     4. a fully opaque, slightly larger dot
+
+   THE WASH IS DELIBERATELY WEAK (16%) AND THE RING STRONG. Accent fills are
+   light — lime, cyan, magenta — so a heavy wash would force dark text for
+   contrast and make the selected tab the brightest object on the screen,
+   louder than the verdict figure. A saturated EDGE reads as selection at any
+   brightness while costing almost no luminance, so the text keeps its normal
+   colour and the contrast gate is unaffected.
+
+   THE RING USES `--accent-edge`, NOT `--accent`. The `-fill` tokens are pale
+   by design — they are chip backgrounds meant to sit under dark text — and a
+   pale cyan ring on the light theme's near-white surface is close to
+   invisible, which is the exact complaint this change answers. The base
+   `--color-uni-*` tokens are already darkened for the light theme and stay
+   identical to the fill on dark, so one declaration is correct in both.
+   ═════════════════════════════════════════════════════════════════════════ */
+.gati-universe-tab[aria-current="page"] {
+  background: color-mix(in srgb, var(--accent) 16%, var(--color-surface-raised));
+  color: var(--color-ink);
+  font-weight: 800;
+  box-shadow:
+    inset 0 0 0 1.5px var(--accent-edge),
+    0 2px 10px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.gati-universe-tab[aria-current="page"] span {
+  width: 8px;
+  height: 8px;
+  opacity: 1;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   ON A PHONE THE STRIP BECOMES A THREE-COLUMN CONTROL (owner, 28 Aug 2026:
+   centred, bigger).
+
+   A scrolling row cannot be centred — that is the whole problem. Even after
+   the labels were enlarged the three came to 395px against 358px of usable
+   width at 390, and 288px at 320, so the strip sat scrolled to its left with
+   "NIFTY Smallcap 250" off the edge. Centring a box whose contents overflow
+   it is centring nothing.
+
+   Shrinking the type to make it fit would undo the request. Abbreviating the
+   labels would answer it by changing what they say. So the LAYOUT changes
+   instead: three equal columns across the full width, the accent dot moved
+   ABOVE the label rather than beside it, and the label free to wrap onto a
+   second line.
+
+   Moving the dot up is what buys the room — inline it cost 15px of a 118px
+   column, a seventh of the width, on every tab. Above the text it costs
+   nothing horizontally and reads better as a colour key.
+
+   The result fits at 320 by construction, is centred because it spans the
+   width, and every tab is the same size, so no universe looks more important
+   than another because its name is longer.
+   ═════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 760px) {
+  .gati-universe-tabs {
+    width: 100%;
+    max-width: 100%;
+    gap: 4px;
+  }
+
+  .gati-universe-tab {
+    flex: 1 1 0;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    /* Two lines of 13px text plus the dot, with the 44px touch minimum as a
+       floor rather than a fixed height — a label that wraps to three lines
+       at 320px grows the row instead of spilling out of it. */
+    min-height: 56px;
+    padding: 9px 6px;
+    font-size: 13px;
+    line-height: 1.2;
+    letter-spacing: 0;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+
+  .gati-universe-tab span {
+    margin-right: 0;
+    width: 8px;
+    height: 8px;
+  }
+
+  .gati-universe-tab[aria-current="page"] span {
+    width: 9px;
+    height: 9px;
+  }
+}
+
+/* ---- PAGE HEAD (M14) ----
+   The eyebrow / title / tab-strip row that opens every screen. */
+
+.gati-page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+  /* Same reason as the tab strip: without this the head's flex children
+     refuse to shrink below their content and push the document wider than
+     the viewport. */
+  min-width: 0;
+}
+
+.gati-page-head > * { min-width: 0; max-width: 100%; }
+
+/* The head's right-hand slot: the universe strip, and on some screens a
+   window chip beside it. On a laptop it sits where it always has, at the
+   right of the title row. Once `flex-wrap` drops it onto its own line it
+   takes the full width and centres, so a phone opens with the universe
+   switcher in the middle of the screen rather than tucked under the
+   subtitle (owner, 28 Aug 2026). */
+.gati-page-head-aside {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 760px) {
+  .gati-page-head-aside {
+    width: 100%;
+    justify-content: center;
+    margin-top: 4px;
+  }
+}
+
+.gati-page-head h1 {
+  margin: 7px 0 3px;
+  font-size: 29px;
+  letter-spacing: -0.04em;
+}
+
+.gati-page-head p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-ink-muted);
+}
+
+/* ---- RANKING TABLE (M14) ---- */
+
+/* The RS pill. Tinted by direction, not by the universe accent — see
+   StockTable.jsx for why a negative on a lime wash is a misread waiting to
+   happen. `-soft` tokens are opaque so the contrast gate can measure them. */
+.gati-rs-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 7px;
+  border-radius: 5px;
+  background: var(--color-surface-raised);
+}
+
+.gati-rs-pill[data-direction="up"]   { background: var(--color-gain-soft); }
+.gati-rs-pill[data-direction="down"] { background: var(--color-loss-soft); }
+
+/* Row hover. Reference uses a flat #151d21; expressed against the tokens so
+   it survives the light theme, where a fixed dark grey would be a black bar
+   sliding under the cursor. */
+.gati-row-interactive:hover td {
+  background: color-mix(in srgb, var(--color-ink) 5%, var(--color-surface)) !important;
+}
+
+/* ---- TOUCH SIZING FOR QUIET BUTTONS (v1.6.5 pre-release audit) ----
+
+   The `quiet` variant is 32px tall. That is right for a mouse and under the
+   44px this project uses for anything a thumb has to hit — the same standard
+   already applied to the nav rows and the universe strip.
+
+   The audit found it on real phone controls: "Expand all" on Methodology,
+   "How Gati works" and the contact link on About. The browser QA gate had
+   been reporting them as 24-43px warnings all along, correctly declining to
+   fail the build over an AAA guideline, and correctly leaving them to be
+   judged. Judged: on a phone they should be thumb-sized.
+
+   `min-height` rather than `height`, so a button whose label wraps grows
+   instead of clipping. Inline styles set `height`, which wins on the box
+   itself, so the padding is what actually creates the target — hence both.
+
+   Desktop is untouched: at a mouse pointer 32px is deliberate, and raising
+   it everywhere would loosen a layout that is already correct. */
+@media (max-width: 760px) {
+  .gati-btn-quiet {
+    height: auto !important;
+    min-height: 44px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+}

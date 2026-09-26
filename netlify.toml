@@ -1,0 +1,25 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[build.environment]
+  # Pinned explicitly. Netlify's default Node can lag behind what the build
+  # toolchain needs, and a version mismatch fails the deploy with an error
+  # that looks nothing like its cause. This matches the version the project
+  # is developed and tested against.
+  NODE_VERSION = "22"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# API functions are matched before the SPA catch-all above because Netlify
+# evaluates redirects in order and /api/* has its own `path` config exported
+# from each function (see netlify/functions/*.js) — this entry documents the
+# intent even though Netlify's function routing takes precedence.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200

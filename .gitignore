@@ -1,0 +1,11 @@
+node_modules
+dist
+dist-ssr
+.env
+*.local
+.netlify
+.DS_Store
+coverage
+
+# Single-file preview build (vite.config.preview.js) — generated, not source
+dist-preview/
